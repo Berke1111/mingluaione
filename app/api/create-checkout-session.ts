@@ -40,8 +40,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
     return res.status(200).json({ url: session.url });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error('Stripe checkout error:', err);
+      return res.status(500).json({ error: err.message || 'Failed to create Stripe Checkout session' });
+    }
     console.error('Stripe checkout error:', err);
-    return res.status(500).json({ error: err.message || 'Failed to create Stripe Checkout session' });
+    return res.status(500).json({ error: 'Failed to create Stripe Checkout session' });
   }
 } 
