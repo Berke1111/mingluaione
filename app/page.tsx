@@ -26,9 +26,11 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [enhancing, setEnhancing] = useState(false);
   const [enhanceError, setEnhanceError] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number>(STARTING_CREDITS);
-  const [creditWarning, setCreditWarning] = useState<string | null>(null);
   const [refreshHistory, setRefreshHistory] = useState(0);
+
+  // Add state for credits and creditWarning, but fetch from Supabase only
+  const [credits, setCredits] = useState<number | null>(null);
+  const [creditWarning, setCreditWarning] = useState<string | null>(null);
 
   // Redirect unauthenticated users to sign-in
   useEffect(() => {
@@ -37,30 +39,33 @@ export default function Home() {
     }
   }, [isLoaded, isSignedIn, router]);
 
-  // Store credits per user in localStorage
+  // Fetch credits from Supabase for the current user
   useEffect(() => {
-    if (!userId) return;
-    const stored = localStorage.getItem(`mingluai_credits_${userId}`);
-    if (stored !== null) {
-      setCredits(Number(stored));
-    } else {
-      setCredits(STARTING_CREDITS);
-      localStorage.setItem(`mingluai_credits_${userId}`, String(STARTING_CREDITS));
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    if (!userId) return;
-    localStorage.setItem(`mingluai_credits_${userId}`, String(credits));
-  }, [credits, userId]);
-
-  useEffect(() => {
-    if (credits < COST_PER_GENERATION) {
-      setCreditWarning('You do not have enough credits to generate a thumbnail.');
-    } else {
+    if (!isSignedIn || !userId) {
+      setCredits(null);
       setCreditWarning(null);
+      return;
     }
-  }, [credits]);
+    let cancelled = false;
+    const fetchCredits = async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('credits')
+        .eq('id', userId)
+        .single();
+      if (!cancelled) {
+        if (error || !data) {
+          setCredits(null);
+          setCreditWarning('Unable to fetch credits.');
+        } else {
+          setCredits(data.credits);
+          setCreditWarning(data.credits < COST_PER_GENERATION ? 'You do not have enough credits to generate a thumbnail.' : null);
+        }
+      }
+    };
+    fetchCredits();
+    return () => { cancelled = true; };
+  }, [isSignedIn, userId, refreshHistory]);
 
   // Upsert user in Supabase on first login
   useEffect(() => {
@@ -95,7 +100,7 @@ export default function Home() {
       setError('You must be signed in to generate a thumbnail.');
       return;
     }
-    if (credits < COST_PER_GENERATION) {
+    if (credits === null || credits < COST_PER_GENERATION) {
       setCreditWarning('You do not have enough credits to generate a thumbnail.');
       return;
     }
@@ -113,7 +118,6 @@ export default function Home() {
         setImageUrl(null);
       } else {
         setImageUrl(data.images[0]);
-        setCredits(c => c - COST_PER_GENERATION);
         setRefreshHistory(r => r + 1); // trigger sidebar refresh
       }
     } catch (err: any) {
@@ -168,7 +172,9 @@ export default function Home() {
             </div>
             {/* Credit Balance Display */}
             <div className="w-full max-w-xl flex flex-row items-center justify-center mb-4">
-              <span className="text-lg font-bold text-blue-400 bg-[#23232a] rounded-xl px-4 py-2 shadow border border-[#23232a]">Credits: {credits}</span>
+              <span className="text-lg font-bold text-blue-400 bg-[#23232a] rounded-xl px-4 py-2 shadow border border-[#23232a]">
+                Credits: {credits === null ? '...' : credits}
+              </span>
             </div>
             {/* Generator UI */}
             <div className="w-full max-w-xl bg-[#18181b] shadow-2xl rounded-3xl p-4 sm:p-8 flex flex-col gap-8 sm:gap-10 items-center border border-[#23232a]">
@@ -209,7 +215,7 @@ export default function Home() {
                   <button
                     type="submit"
                     className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg transition disabled:opacity-60 disabled:cursor-not-allowed mt-2 min-h-[48px]"
-                    disabled={loading || credits < COST_PER_GENERATION || !isSignedIn}
+                    disabled={loading || credits === null || credits < COST_PER_GENERATION || !isSignedIn}
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -244,7 +250,7 @@ export default function Home() {
                   </>
                 )}
                 {!imageUrl && (
-                  <div className="w-full max-w-2xl aspect-[16/9] bg-[#23232a] border-2 border-dashed border-[#23232a] rounded-2xl flex items-center justify-center overflow-hidden min-h-[120px] sm:min-h-[180px] max-h-[220px] sm:max-h-[360px]"> 
+                  <div className="w-full max-w-2xl aspect-[16/9] bg-[#23232a] border-2 border-dashed border-[#23232a] rounded-2xl flex items-center justify-center overflow-hidden min-h-[120px] sm:min-h-[180px] max-h-[220px] sm:max-h-[360px]">
                     {loading ? (
                       <span className="text-blue-400 text-lg animate-pulse">Generating...</span>
                     ) : (

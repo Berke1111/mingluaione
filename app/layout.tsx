@@ -26,10 +26,10 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
-        <body
+    <html lang="en">
+      <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0d0d0d]`}
-        >
+      >
           {/*
           <header className="flex justify-end items-center p-4 gap-4 h-16 w-full max-w-2xl mx-auto">
             <SignedOut>
@@ -41,9 +41,9 @@ export default function RootLayout({
           </header>
           */}
           {/* Main content starts at the very top, no header space reserved */}
-          {children}
-        </body>
-      </html>
+        {children}
+      </body>
+    </html>
     </ClerkProvider>
   );
 }
