@@ -2,6 +2,7 @@
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import Image from 'next/image';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -161,7 +162,14 @@ export default function ThumbnailHistorySidebar({ refreshTrigger }: { refreshTri
             title="Sign out"
           >
             {avatarUrl ? (
-              <img src={avatarUrl} alt="Profile avatar" className="w-14 h-14 rounded-full object-cover" />
+              <Image
+                src={avatarUrl}
+                alt="Profile avatar"
+                width={56}
+                height={56}
+                className="w-14 h-14 rounded-full object-cover"
+                priority
+              />
             ) : (
               <span>{initials}</span>
             )}
@@ -237,9 +245,11 @@ function HistoryItem({ item }: { item: any }) {
   const formattedDate = new Date(item.created_at).toLocaleString();
   return (
     <div className="flex items-center gap-3 bg-[#23232a] rounded-xl p-2 shadow hover:bg-blue-950 transition group">
-      <img
+      <Image
         src={item.image_url}
         alt="Thumbnail preview"
+        width={64}
+        height={40}
         className="w-16 h-10 object-cover rounded-lg border border-[#23232a]"
         loading="lazy"
       />

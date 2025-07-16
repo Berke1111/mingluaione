@@ -5,6 +5,7 @@ import { useAuth, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import ThumbnailHistorySidebar from '../components/ThumbnailHistorySidebar';
+import Image from 'next/image';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -227,12 +228,15 @@ export default function Home() {
                 {imageUrl && (
                   <>
                     <h4 className="text-base sm:text-lg font-bold text-white mb-2">Your Generated Thumbnail</h4>
-                    <div className="w-full max-w-2xl aspect-[16/9] bg-[#18181b] border border-[#23232a] rounded-2xl flex items-center justify-center overflow-hidden shadow-xl relative min-h-[120px] sm:min-h-[180px] max-h-[220px] sm:max-h-[360px]"> 
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                    <div className="w-full max-w-2xl aspect-[16/9] bg-[#18181b] border border-[#23232a] rounded-2xl flex items-center justify-center overflow-hidden shadow-xl relative min-h-[120px] sm:min-h-[180px] max-h-[220px] sm:max-h-[360px]">
+                      <Image
                         src={imageUrl}
                         alt="Generated YouTube Thumbnail"
+                        width={1280}
+                        height={720}
                         className="w-full h-full object-contain rounded-xl shadow-lg"
+                        style={{ objectFit: 'contain' }}
+                        priority
                       />
                     </div>
                     {/* Download Button */}

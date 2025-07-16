@@ -1,6 +1,7 @@
 "use client";
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 
 function getInitials(name: string | undefined, email: string | undefined) {
   if (name && name.trim()) {
@@ -67,11 +68,14 @@ export default function UserHeaderInfo({ credits }: { credits?: number }) {
         className="w-10 h-10 rounded-full border-2 border-blue-400 bg-[#23232a] flex items-center justify-center shadow focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:scale-105"
       >
         {avatarUrl ? (
-          <img
+          <Image
             src={avatarUrl}
             alt="Profile avatar"
+            width={36}
+            height={36}
             className="w-9 h-9 rounded-full object-cover"
             draggable={false}
+            priority
           />
         ) : (
           <span className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-600 text-white font-bold text-lg">
@@ -90,7 +94,14 @@ export default function UserHeaderInfo({ credits }: { credits?: number }) {
         >
           <div className="px-4 py-2 flex items-center gap-3 border-b border-[#23232a]">
             {avatarUrl ? (
-              <img src={avatarUrl} alt="Profile avatar" className="w-8 h-8 rounded-full object-cover" />
+              <Image
+                src={avatarUrl}
+                alt="Profile avatar"
+                width={32}
+                height={32}
+                className="w-8 h-8 rounded-full object-cover"
+                priority
+              />
             ) : (
               <span className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-600 text-white font-bold text-base">{initials}</span>
             )}

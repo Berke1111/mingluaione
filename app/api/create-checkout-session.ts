@@ -2,13 +2,17 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import Stripe from 'stripe';
 import { getAuth } from '@clerk/nextjs/server';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2023-08-16' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-06-30.basil' });
 
 const PLAN_PRICE_IDS: Record<string, string> = {
-  beginner: 'price_1RlVVgQDB47VSUORzMwzinrl', // Provided Price ID
-  pro: 'price_pro', // Replace with your real Pro price ID
-  enterprise: 'price_enterprise', // Replace with your real Enterprise price ID
+  beginner: 'price_1RlVVgQDB47VSUORzMwzinrl',
+  pro: 'price_pro',
+  enterprise: 'price_enterprise',
 };
+
+interface CreateCheckoutSessionBody {
+  plan: string;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -18,7 +22,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!auth.userId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  const { plan } = req.body;
+  let plan: string;
+  try {
+    // If using Next.js API routes with bodyParser: true, req.body is already parsed
+    // If using bodyParser: false, you need to parse the body yourself
+    const body = req.body as CreateCheckoutSessionBody;
+    plan = body.plan;
+  } catch {
+    return res.status(400).json({ error: 'Invalid request body' });
+  }
   if (!plan || !PLAN_PRICE_IDS[plan]) {
     return res.status(400).json({ error: 'Invalid plan' });
   }
