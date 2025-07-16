@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  const { userId, email } = req.body;
+  const { userId } = req.body;
   if (!userId) {
     return res.status(400).json({ error: 'Missing userId' });
   }
@@ -29,7 +29,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: error.message });
     }
     return res.status(200).json({ success: true });
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message || 'Failed to update credits' });
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      return res.status(500).json({ error: err.message || 'Failed to update credits' });
+    }
+    return res.status(500).json({ error: 'Failed to update credits' });
   }
 } 

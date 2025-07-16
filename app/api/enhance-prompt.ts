@@ -50,8 +50,12 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ enhancedPrompt }, { status: 200 });
-  } catch (err: any) {
-    console.error('Enhance prompt API error:', err);
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error('Enhance prompt API error:', err.message, err.stack);
+    } else {
+      console.error('Enhance prompt API error:', err);
+    }
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 } 

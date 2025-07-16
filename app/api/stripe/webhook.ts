@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const sig = req.headers['stripe-signature'] as string;
   let event;
   try {
-    const chunks = [];
+    const chunks: Buffer[] = [];
     for await (const chunk of req) {
       chunks.push(chunk);
     }
@@ -37,9 +37,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
-  } catch (err: any) {
-    console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+    console.error('Webhook signature verification failed:', err);
+    return res.status(400).send('Webhook Error: Unknown error');
   }
   console.log('Received Stripe event:', event.type);
 
@@ -50,22 +54,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const subscription_id = session.subscription as string;
     let price_id = '';
     let credits = 0;
-    let status = 'active';
+    const status = 'active';
     // Try to get price_id from session.items or session.display_items or session.line_items
-    if ((session as any).items && (session as any).items.data && (session as any).items.data[0]?.price?.id) {
-      price_id = (session as any).items.data[0].price.id;
-    } else if ((session as any).display_items && (session as any).display_items[0]?.plan?.id) {
-      price_id = (session as any).display_items[0].plan.id;
-    } else if ((session as any).line_items && (session as any).line_items.data && (session as any).line_items.data[0]?.price?.id) {
-      price_id = (session as any).line_items.data[0].price.id;
-    } else if ((session as any).amount_total) {
+    if ((session as unknown as Record<string, unknown>).items && (session as unknown as { items?: { data?: { price?: { id?: string } }[] } }).items?.data?.[0]?.price?.id) {
+      price_id = (session as unknown as { items: { data: { price?: { id?: string } }[] } }).items.data[0].price?.id || '';
+    } else if ((session as unknown as Record<string, unknown>).display_items && (session as unknown as { display_items?: { plan?: { id?: string } }[] }).display_items?.[0]?.plan?.id) {
+      price_id = (session as unknown as { display_items: { plan?: { id?: string } }[] }).display_items[0].plan?.id || '';
+    } else if ((session as unknown as Record<string, unknown>).line_items && (session as unknown as { line_items?: { data?: { price?: { id?: string } }[] } }).line_items?.data?.[0]?.price?.id) {
+      price_id = (session as unknown as { line_items: { data: { price?: { id?: string } }[] } }).line_items.data[0].price?.id || '';
+    } else if ((session as unknown as Record<string, unknown>).amount_total) {
       // fallback: try to get from subscription
       if (subscription_id) {
         try {
           const subscription = await stripe.subscriptions.retrieve(subscription_id);
           price_id = (subscription.items.data[0]?.price?.id) || '';
-        } catch (err) {
-          console.error('Failed to fetch subscription for price_id:', err);
+        } catch (err: unknown) {
+          if (err instanceof Error) {
+            console.error('Failed to fetch subscription for price_id:', err.message);
+          } else {
+            console.error('Failed to fetch subscription for price_id:', err);
+          }
         }
       }
     }
@@ -75,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Missing required info for subscription/credits' });
     }
     // Upsert into subscriptions table
-    const { data: subData, error: subError } = await supabase.from('subscriptions').upsert({
+    const { error: subError } = await supabase.from('subscriptions').upsert({
       user_id,
       stripe_customer_id,
       subscription_id,
@@ -97,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (creditsData && typeof creditsData.credits === 'number') {
       newCredits += creditsData.credits;
     }
-    const { data: upsertData, error: upsertError } = await supabase.from('user_credits').upsert({
+    const { error: upsertError } = await supabase.from('user_credits').upsert({
       user_id,
       credits: newCredits,
     }, { onConflict: 'user_id' });

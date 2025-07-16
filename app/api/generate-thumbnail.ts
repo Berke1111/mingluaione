@@ -22,20 +22,25 @@ function buildPrompt(title: string, tone?: string): string {
  * Validate and parse the incoming request body.
  */
 async function parseAndValidateBody(req: NextRequest): Promise<{ title: string; tone?: string }> {
-  let body: any;
+  let body: unknown;
   try {
     body = await req.json();
   } catch {
     throw NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-  const { title, tone } = body || {};
+  if (!body || typeof body !== 'object') {
+    throw NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+  const maybe = body as { title?: unknown; tone?: unknown };
+  const title = maybe.title;
+  const tone = maybe.tone;
   if (!title || typeof title !== 'string' || !title.trim()) {
-    throw NextResponse.json({ error: 'Missing or invalid \"title\" (required string)' }, { status: 400 });
+    throw NextResponse.json({ error: 'Missing or invalid "title" (required string)' }, { status: 400 });
   }
   if (tone && typeof tone !== 'string') {
-    throw NextResponse.json({ error: 'Invalid \"tone\" (must be a string if provided)' }, { status: 400 });
+    throw NextResponse.json({ error: 'Invalid "tone" (must be a string if provided)' }, { status: 400 });
   }
-  return { title: title.trim(), tone: tone?.trim() };
+  return { title: title.trim(), tone: tone ? (tone as string).trim() : undefined };
 }
 
 /**
@@ -61,7 +66,7 @@ export async function POST(req: NextRequest) {
     const replicate = new Replicate({ auth: replicateApiToken });
 
     // Call the Replicate model
-    let output: any;
+    let output: unknown;
     try {
       output = await replicate.run('black-forest-labs/flux-schnell', {
         input: {
@@ -74,9 +79,13 @@ export async function POST(req: NextRequest) {
           output_quality: 80,
         },
       });
-    } catch (modelErr: any) {
+    } catch (modelErr: unknown) {
+      if (modelErr instanceof Error) {
+        console.error('Replicate model error:', modelErr.message, modelErr.stack);
+        return NextResponse.json({ error: 'Failed to generate image from Replicate', details: modelErr.message }, { status: 502 });
+      }
       console.error('Replicate model error:', modelErr);
-      return NextResponse.json({ error: 'Failed to generate image from Replicate', details: modelErr?.message || modelErr }, { status: 502 });
+      return NextResponse.json({ error: 'Failed to generate image from Replicate', details: String(modelErr) }, { status: 502 });
     }
 
     // Validate output: should be a non-empty array of image URLs or buffers
@@ -122,11 +131,15 @@ export async function POST(req: NextRequest) {
 
     // Return the file paths (or Replicate URLs if writing failed)
     return NextResponse.json({ images: filePaths }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof NextResponse) {
       return err;
     }
-    console.error('API route error:', err);
+    if (err instanceof Error) {
+      console.error('API route error:', err.message, err.stack);
+    } else {
+      console.error('API route error:', err);
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

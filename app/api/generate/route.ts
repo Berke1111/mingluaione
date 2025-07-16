@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     const replicate = new Replicate({ auth: replicateApiToken });
 
-    let output: any;
+    let output: unknown;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 60000);
@@ -63,12 +63,16 @@ export async function POST(req: NextRequest) {
       });
 
       clearTimeout(timeout);
-    } catch (modelErr: any) {
-      console.error('Replicate model error:', modelErr);
-      if (modelErr.name === 'AbortError') {
-        return NextResponse.json({ error: 'Image generation timed out. Please try again.' }, { status: 504 });
+    } catch (modelErr: unknown) {
+      if (modelErr instanceof Error) {
+        console.error('Replicate model error:', modelErr.message, modelErr.stack);
+        if (modelErr.name === 'AbortError') {
+          return NextResponse.json({ error: 'Image generation timed out. Please try again.' }, { status: 504 });
+        }
+        return NextResponse.json({ error: 'Failed to generate image from Replicate.', details: modelErr.message }, { status: 502 });
       }
-      return NextResponse.json({ error: 'Failed to generate image from Replicate.', details: modelErr?.message || modelErr }, { status: 502 });
+      console.error('Replicate model error:', modelErr);
+      return NextResponse.json({ error: 'Failed to generate image from Replicate.', details: String(modelErr) }, { status: 502 });
     }
 
     // Log the output for debugging
@@ -77,14 +81,14 @@ export async function POST(req: NextRequest) {
     // --- Robustly handle all output types ---
     let images: string[] = [];
     if (output && Array.isArray(output)) {
-      images = await Promise.all(output.map(async (item: any) => {
+      images = await Promise.all(output.map(async (item: unknown) => {
         if (typeof item === 'string' && item.startsWith('http')) {
           return item;
         }
-        if (item && typeof item.getReader === 'function') {
+        if (item && typeof (item as { getReader?: () => any }).getReader === 'function') {
           // ReadableStream
-          const reader = item.getReader();
-          let chunks: Uint8Array[] = [];
+          const reader = (item as ReadableStream<Uint8Array>).getReader();
+          const chunks: Uint8Array[] = [];
           let done = false;
           while (!done) {
             const { value, done: doneReading } = await reader.read();
@@ -96,8 +100,8 @@ export async function POST(req: NextRequest) {
         }
         return '';
       }));
-    } else if (output && Array.isArray(output.output)) {
-      images = output.output.filter((url: any) => typeof url === 'string' && url.startsWith('http'));
+    } else if (output && typeof output === 'object' && output !== null && Array.isArray((output as { output?: unknown[] }).output)) {
+      images = (output as { output: unknown[] }).output.filter((url: unknown) => typeof url === 'string' && (url as string).startsWith('http')) as string[];
     }
 
     images = images.filter(Boolean);
@@ -125,8 +129,12 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ images }, { status: 200 });
-  } catch (err: any) {
-    console.error('API route error:', err);
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error('API route error:', err.message, err.stack);
+    } else {
+      console.error('API route error:', err);
+    }
     return NextResponse.json({ error: 'Internal server error. Please try again later.' }, { status: 500 });
   }
 } 
