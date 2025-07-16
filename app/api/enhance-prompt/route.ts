@@ -61,8 +61,11 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
     });
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.error('Enhance prompt API error:', err);
-    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error.' }, {
+      status: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+    });
   }
 } 
